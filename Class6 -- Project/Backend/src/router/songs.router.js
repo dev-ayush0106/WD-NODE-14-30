@@ -5,7 +5,13 @@ const songsModel=require("../model/songs.model")
 const uploadFile=require("../services/songs.services")
 const cors=require("cors")
 
-const storage=multer({storage:multer.memoryStorage()});
+const storage=multer({
+    storage:multer.memoryStorage(),
+    limits:{
+        file:20,
+        fileSize:200*1024*1024
+    }
+});
 
 router.use(express.json());
 router.use(cors());
@@ -17,31 +23,46 @@ router.use(cors());
     mood
 */
 
-router.post("/songs",storage.single("audioFile"),async(req,res)=>{
+router.post("/songs",storage.array("audioFile"),async(req,res)=>{
     // res.send(req.body);
-    console.log(req.body)
-    console.log(req.file)
 
-    const fileData= await uploadFile(req.file)
-    console.log(fileData);
+    console.log(req.body.songData)
+    // console.log(req.body)
+    console.log(req.files)
+
+    const songDatas=JSON.parse(req.body.songData);
+    const files=req.files;
+
+    if(songDatas.length !== files.length){
+        return res.status(400).json({
+            message:"Song data count & File count is not equal!"
+        })
+    }
+
+    let savedSongs=[];
+    for(let i=0;i<files.length;i++){
+    const fileData= await uploadFile(req.files[i])
 
     const songs=await songsModel.create({
-        title:req.body.title,
-        artist:req.body.artist,
+        title:songDatas[i].title,
+        artist:songDatas[i].artist,
         audioFile:fileData.url,
-        mood:req.body.mood
+        mood:songDatas[i].mood
     })
+
+    savedSongs.push(songs)
+    }
 
     // const allSong=songsModel.find()
 
-    // res.status(201).json({
-    //     message:"Song Created",
-    //     allSongs:allSong
-    // })
-
     res.status(201).json({
-        message:"Song Created"
+        message:"Song Created",
+        songs:savedSongs
     })
+
+    // res.status(201).json({
+    //     message:"Song Created"
+    // })
 
 })
 
